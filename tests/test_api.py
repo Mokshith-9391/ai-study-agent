@@ -43,6 +43,13 @@ def test_health_does_not_construct_study_app():
     assert response.json() == {"status": "ok"}
 
 
+def test_root_redirects_to_swagger_docs():
+    response = TestClient(app).get("/", follow_redirects=False)
+
+    assert response.status_code == 307
+    assert response.headers["location"] == "/docs"
+
+
 def test_ask_returns_structured_evidence():
     app.dependency_overrides[_get_app] = FakeStudyApp
     try:

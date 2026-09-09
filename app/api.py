@@ -5,6 +5,7 @@ import logging
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.config import settings
@@ -128,6 +129,12 @@ def _run_request(request: StudyRequest, mode: str, study_app: StudyApp) -> Study
 def health() -> dict[str, str]:
     """Fast, dependency-safe health check; it never calls Gemini."""
     return {"status": "ok"}
+
+
+@app.get("/", include_in_schema=False)
+def root() -> RedirectResponse:
+    """Send browser visitors to the interactive API documentation."""
+    return RedirectResponse(url="/docs")
 
 
 @app.post("/session/start", response_model=SessionResponse, status_code=status.HTTP_201_CREATED)
