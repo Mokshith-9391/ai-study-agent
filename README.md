@@ -53,10 +53,10 @@ Chunk IDs are deterministic and indexing uses Chroma upserts, so unchanged chunk
 ## Run the localhost API
 
 ```powershell
-python -m uvicorn app.api:app --host 127.0.0.1 --port 8000
+python -m uvicorn app.api:app --host 0.0.0.0 --port 8000
 ```
 
-Open [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) for Swagger UI or [http://127.0.0.1:8000/openapi.json](http://127.0.0.1:8000/openapi.json) for the schema.
+Open [http://192.168.88.13:8000](http://192.168.88.13:8000) in Chrome on this laptop or another device on the same Wi-Fi network. The root URL redirects to Swagger UI; the OpenAPI schema is available at `/openapi.json`.
 
 ## API endpoints
 
