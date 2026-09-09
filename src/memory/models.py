@@ -42,28 +42,25 @@ class FlashcardReview:
 @dataclass
 class TopicProgress:
     topic: str
-    questions_answered: int
-    questions_correct: int
-    flashcards_reviewed: int
-    flashcards_remembered: int
-    last_studied_at: str | None
+    quiz_correct: int
+    quiz_total: int
+    flashcard_remembered: int
+    flashcard_total: int
+    updated_at: str | None
 
     @property
     def quiz_accuracy(self) -> float:
-        if self.questions_answered == 0:
+        if self.quiz_total == 0:
             return 0.0
 
-        return (
-            self.questions_correct
-            / self.questions_answered
-        )
+        return self.quiz_correct / self.quiz_total
 
     @property
     def flashcard_retention(self) -> float:
-        if self.flashcards_reviewed == 0:
+        if self.flashcard_total == 0:
             return 0.0
 
         return (
-            self.flashcards_remembered
-            / self.flashcards_reviewed
+            self.flashcard_remembered
+            / self.flashcard_total
         )

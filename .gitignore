@@ -1,5 +1,7 @@
 venv/
 .env
+.env.*
+!.env.example
 
 __pycache__/
 *.pyc
@@ -7,6 +9,14 @@ __pycache__/
 
 data/
 vectorstore/
+
+# Local documents and generated project artifacts
+*.db
+*.sqlite
+*.sqlite3
+
+# User-provided project brief; keep it local.
+AI_Study_Agent_Project_Documentation_Professional.pdf
 
 .vscode/
 .idea/

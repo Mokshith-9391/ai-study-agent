@@ -3,6 +3,7 @@ from src.ingestion.cleaner import clean_documents
 from src.ingestion.chunker import split_documents
 from src.embedding import GeminiEmbedder
 from src.vectorstore import ChromaVectorStore
+from src.config import settings
 
 
 def main() -> None:
@@ -12,7 +13,7 @@ def main() -> None:
     print("=" * 60)
 
     # 1. Load
-    documents = load_study_folder("data/study")
+    documents = load_study_folder(str(settings.study_folder))
 
     print(f"Documents loaded: {len(documents)}")
 

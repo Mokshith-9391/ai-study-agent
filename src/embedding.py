@@ -4,11 +4,13 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
+from src.config import settings
+
 
 load_dotenv()
 
 
-EMBEDDING_MODEL = "gemini-embedding-2"
+EMBEDDING_MODEL = settings.gemini_embedding_model
 EMBEDDING_DIMENSION = 768
 
 

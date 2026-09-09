@@ -1,17 +1,22 @@
 import os
 import time
+import logging
 
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 from google.genai import errors
 
+from src.config import settings
+
 load_dotenv()
 
-LLM_MODEL = "gemini-3.8-flash"
+LLM_MODEL = settings.gemini_generation_model
 
 MAX_RETRIES = 3
 INITIAL_RETRY_DELAY = 2
+
+logger = logging.getLogger(__name__)
 
 
 class GeminiLLM:
@@ -80,10 +85,7 @@ class GeminiLLM:
                     2 ** attempt
                 )
 
-                print(
-                    f"Gemini server error. "
-                    f"Retrying in {delay} seconds..."
-                )
+                logger.warning("Gemini server error; retrying in %s seconds", delay)
 
                 time.sleep(delay)
 

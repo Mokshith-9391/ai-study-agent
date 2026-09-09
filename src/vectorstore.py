@@ -3,9 +3,10 @@ from pathlib import Path
 import chromadb
 
 from src.evidence import Evidence
+from src.config import settings
 
 
-VECTORSTORE_PATH = Path("vectorstore")
+VECTORSTORE_PATH = settings.vectorstore_path
 COLLECTION_NAME = "study_documents"
 
 
@@ -76,9 +77,13 @@ class ChromaVectorStore:
                 "top_k must be greater than zero."
             )
 
+        available = self.count()
+        if available == 0:
+            return []
+
         results = self.collection.query(
             query_embeddings=[query_embedding],
-            n_results=top_k,
+            n_results=min(top_k, available),
         )
 
         ids = results["ids"][0]

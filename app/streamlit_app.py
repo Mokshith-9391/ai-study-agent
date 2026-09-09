@@ -10,644 +10,383 @@ st.set_page_config(
 )
 
 
-@st.cache_resource
-def get_app() -> StudyApp:
-    return StudyApp()
+# ---------------------------------------------------------
+# Persistent application instance
+# ---------------------------------------------------------
+
+if "study_app" not in st.session_state:
+    st.session_state.study_app = StudyApp()
+
+study_app: StudyApp = st.session_state.study_app
 
 
-app = get_app()
+# ---------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------
 
+def display_sources(result) -> None:
+    evidence = getattr(result, "evidence", [])
 
-# ============================================================
-# SESSION INITIALIZATION
-# ============================================================
-
-if "session_started" not in st.session_state:
-    st.session_state.session_started = False
-
-if "quiz_questions" not in st.session_state:
-    st.session_state.quiz_questions = []
-
-if "flashcards" not in st.session_state:
-    st.session_state.flashcards = []
-
-if "flashcard_index" not in st.session_state:
-    st.session_state.flashcard_index = 0
-
-
-# ============================================================
-# SIDEBAR
-# ============================================================
-
-st.sidebar.title("📚 AI Study Agent")
-
-mode = st.sidebar.radio(
-    "Study Mode",
-    [
-        "Ask",
-        "Explain",
-        "Summarize",
-        "Quiz",
-        "Flashcards",
-        "Compare",
-        "Progress",
-    ],
-)
-
-
-# ============================================================
-# SESSION CONTROLS
-# ============================================================
-
-st.sidebar.divider()
-st.sidebar.subheader("Study Session")
-
-if not st.session_state.session_started:
-
-    if st.sidebar.button(
-        "▶ Start Session",
-        use_container_width=True,
-    ):
-        app.start_session()
-        st.session_state.session_started = True
-        st.rerun()
-
-else:
-
-    st.sidebar.success("Session active")
-
-    if st.sidebar.button(
-        "■ End Session",
-        use_container_width=True,
-    ):
-        app.end_session()
-        st.session_state.session_started = False
-        st.rerun()
-
-
-# ============================================================
-# HELPER FUNCTIONS
-# ============================================================
-
-def show_sources(evidence):
     if not evidence:
         return
 
-    with st.expander("📖 Sources"):
-        for item in evidence:
-            page = (
-                f", page {item.page}"
-                if item.page is not None
-                else ""
-            )
+    with st.expander("Sources"):
+        for index, item in enumerate(evidence, start=1):
+            citation = item.citation()
 
-            st.markdown(
-                f"**{item.source}{page}**"
-            )
-
-            st.caption(
-                f"Distance: {item.distance:.4f}"
-            )
-
+            st.markdown(f"**E{index} — {citation}**")
             st.write(item.content)
 
 
-def record_conversation(
-    question: str,
-    answer: str,
-):
-    if not st.session_state.session_started:
-        return
-
-    app.agent.record_user_message(question)
-    app.agent.record_assistant_message(answer)
+def display_text_result(result) -> None:
+    st.markdown(result.answer)
+    display_sources(result)
 
 
-# ============================================================
-# HEADER
-# ============================================================
+# ---------------------------------------------------------
+# Header
+# ---------------------------------------------------------
 
 st.title("📚 AI Study Agent")
-
 st.caption(
-    "Local study documents → retrieval → grounded AI → citations"
+    "Source-grounded study assistant powered by RAG, LangGraph and SQLite."
 )
 
 
-# ============================================================
+# ---------------------------------------------------------
+# Sidebar
+# ---------------------------------------------------------
+
+with st.sidebar:
+    st.header("Study Session")
+
+    if study_app.session_id is None:
+        st.info("No active study session.")
+
+        if st.button(
+            "Start Session",
+            use_container_width=True,
+        ):
+            try:
+                study_app.start_session()
+                st.rerun()
+            except Exception as exc:
+                st.error(str(exc))
+
+    else:
+        st.success(
+            f"Active session: {study_app.session_id}"
+        )
+
+        if st.button(
+            "End Session",
+            use_container_width=True,
+        ):
+            try:
+                study_app.end_session()
+                st.rerun()
+            except Exception as exc:
+                st.error(str(exc))
+
+    st.divider()
+
+    mode = st.radio(
+        "Study Mode",
+        [
+            "Ask",
+            "Explain",
+            "Summarize",
+            "Quiz",
+            "Flashcards",
+            "Compare",
+            "Progress",
+        ],
+    )
+
+
+# ---------------------------------------------------------
+# Require active session for interactive study modes
+# ---------------------------------------------------------
+
+if mode != "Progress" and study_app.session_id is None:
+    st.info(
+        "Start a study session from the sidebar before using "
+        "the study modes."
+    )
+    st.stop()
+
+
+# ---------------------------------------------------------
 # ASK
-# ============================================================
+# ---------------------------------------------------------
 
 if mode == "Ask":
-
-    st.header("Ask a Question")
+    st.header("Ask")
 
     question = st.text_area(
-        "What do you want to learn?",
-        placeholder="Example: What is Retrieval-Augmented Generation?",
+        "What would you like to know?",
+        placeholder="What is Retrieval-Augmented Generation?",
         height=120,
     )
 
-    if st.button(
-        "Ask",
-        type="primary",
-    ):
+    if st.button("Ask", type="primary"):
+        try:
+            with st.spinner("Searching your study material..."):
+                result = study_app.ask(question)
 
-        if not question.strip():
-            st.warning(
-                "Please enter a question."
-            )
+            display_text_result(result)
 
-        else:
-            with st.spinner(
-                "Searching your study material..."
-            ):
-                try:
-                    result = app.ask(question)
-
-                    record_conversation(
-                        question,
-                        result.answer,
-                    )
-
-                    st.markdown(
-                        "### Answer"
-                    )
-
-                    st.write(
-                        result.answer
-                    )
-
-                    show_sources(
-                        result.evidence
-                    )
-
-                except Exception as error:
-                    st.error(
-                        f"Request failed: {error}"
-                    )
+        except Exception as exc:
+            st.error(str(exc))
 
 
-# ============================================================
+# ---------------------------------------------------------
 # EXPLAIN
-# ============================================================
+# ---------------------------------------------------------
 
 elif mode == "Explain":
-
-    st.header("Explain a Topic")
+    st.header("Explain")
 
     topic = st.text_input(
         "Topic",
-        placeholder="Example: embeddings",
+        placeholder="Explain embeddings",
     )
 
-    if st.button(
-        "Explain",
-        type="primary",
-    ):
+    if st.button("Explain", type="primary"):
+        try:
+            with st.spinner("Generating explanation..."):
+                result = study_app.explain(topic)
 
-        if not topic.strip():
-            st.warning(
-                "Please enter a topic."
-            )
+            display_text_result(result)
 
-        else:
-            with st.spinner(
-                "Preparing explanation..."
-            ):
-                try:
-                    result = app.explain(topic)
-
-                    record_conversation(
-                        f"Explain {topic}",
-                        result.answer,
-                    )
-
-                    st.markdown(
-                        "### Explanation"
-                    )
-
-                    st.write(
-                        result.answer
-                    )
-
-                    show_sources(
-                        result.evidence
-                    )
-
-                except Exception as error:
-                    st.error(
-                        f"Request failed: {error}"
-                    )
+        except Exception as exc:
+            st.error(str(exc))
 
 
-# ============================================================
+# ---------------------------------------------------------
 # SUMMARIZE
-# ============================================================
+# ---------------------------------------------------------
 
 elif mode == "Summarize":
-
     st.header("Summarize")
 
     topic = st.text_input(
-        "Topic or document subject",
-        placeholder="Example: RAG",
+        "Topic",
+        placeholder="Summarize Retrieval-Augmented Generation",
     )
 
-    if st.button(
-        "Summarize",
-        type="primary",
-    ):
+    if st.button("Summarize", type="primary"):
+        try:
+            with st.spinner("Generating summary..."):
+                result = study_app.summarize(topic)
 
-        if not topic.strip():
-            st.warning(
-                "Please enter a topic."
-            )
+            display_text_result(result)
 
-        else:
-            with st.spinner(
-                "Creating summary..."
-            ):
-                try:
-                    result = app.summarize(topic)
-
-                    record_conversation(
-                        f"Summarize {topic}",
-                        result.answer,
-                    )
-
-                    st.markdown(
-                        "### Summary"
-                    )
-
-                    st.write(
-                        result.answer
-                    )
-
-                    show_sources(
-                        result.evidence
-                    )
-
-                except Exception as error:
-                    st.error(
-                        f"Request failed: {error}"
-                    )
+        except Exception as exc:
+            st.error(str(exc))
 
 
-# ============================================================
+# ---------------------------------------------------------
 # QUIZ
-# ============================================================
+# ---------------------------------------------------------
 
 elif mode == "Quiz":
-
-    st.header("🧠 Quiz")
+    st.header("Quiz")
 
     topic = st.text_input(
-        "Quiz topic",
-        placeholder="Example: RAG",
+        "Topic",
+        placeholder="Machine Learning",
     )
 
-    number = st.slider(
+    number_of_questions = st.number_input(
         "Number of questions",
         min_value=1,
-        max_value=10,
+        max_value=20,
         value=5,
+        step=1,
     )
 
-    if st.button(
-        "Generate Quiz",
-        type="primary",
-    ):
+    if st.button("Generate Quiz", type="primary"):
+        try:
+            with st.spinner("Generating quiz..."):
+                questions = study_app.quiz(
+                    topic,
+                    int(number_of_questions),
+                )
 
-        if not topic.strip():
-            st.warning(
-                "Please enter a topic."
-            )
+            st.session_state.quiz_questions = questions
 
-        else:
-            with st.spinner(
-                "Generating quiz..."
-            ):
-                try:
-                    questions = app.quiz(
-                        topic,
-                        number,
-                    )
+        except Exception as exc:
+            st.error(str(exc))
 
-                    st.session_state.quiz_questions = questions
-
-                except Exception as error:
-                    st.error(
-                        f"Quiz generation failed: {error}"
-                    )
-
-    questions = st.session_state.quiz_questions
+    questions = st.session_state.get(
+        "quiz_questions",
+        [],
+    )
 
     if questions:
-
-        st.divider()
-
-        score = 0
-
         for index, question in enumerate(
             questions,
             start=1,
         ):
-
-            st.markdown(
-                f"### {index}. {question.question}"
+            st.subheader(
+                f"Question {index}"
             )
 
             selected = st.radio(
-                "Choose an answer:",
+                question.question,
                 question.options,
-                key=f"quiz_{index}",
+                key=f"quiz_answer_{index}",
             )
 
             if st.button(
-                f"Check answer {index}",
-                key=f"check_{index}",
+                f"Check Answer {index}",
+                key=f"quiz_check_{index}",
             ):
-
                 if selected == question.answer:
-
-                    st.success(
-                        "✅ Correct!"
-                    )
-
-                    score += 1
-
-                    app.agent.record_quiz_attempt(
-                        topic=topic,
-                        question=question.question,
-                        selected_answer=selected,
-                        correct_answer=question.answer,
-                    )
+                    st.success("Correct!")
 
                 else:
-
                     st.error(
-                        f"❌ Incorrect. Correct answer: "
+                        f"Incorrect. Correct answer: "
                         f"{question.answer}"
                     )
 
-                    app.agent.record_quiz_attempt(
-                        topic=topic,
-                        question=question.question,
-                        selected_answer=selected,
-                        correct_answer=question.answer,
-                    )
+                st.info(question.explanation)
 
-                st.info(
-                    question.explanation
-                )
-
-                show_sources(
-                    question.evidence
-                )
+        if questions:
+            display_sources(questions[0])
 
 
-# ============================================================
+# ---------------------------------------------------------
 # FLASHCARDS
-# ============================================================
+# ---------------------------------------------------------
 
 elif mode == "Flashcards":
-
-    st.header("🗂️ Flashcards")
+    st.header("Flashcards")
 
     topic = st.text_input(
-        "Flashcard topic",
-        placeholder="Example: embeddings",
+        "Topic",
+        placeholder="Embeddings",
     )
 
-    number = st.slider(
+    number_of_cards = st.number_input(
         "Number of cards",
         min_value=1,
-        max_value=10,
+        max_value=20,
         value=5,
+        step=1,
     )
 
     if st.button(
         "Generate Flashcards",
         type="primary",
     ):
+        try:
+            with st.spinner("Generating flashcards..."):
+                cards = study_app.flashcards(
+                    topic,
+                    int(number_of_cards),
+                )
 
-        if not topic.strip():
-            st.warning(
-                "Please enter a topic."
-            )
+            st.session_state.flashcards = cards
 
-        else:
-            with st.spinner(
-                "Generating flashcards..."
-            ):
-                try:
-                    cards = app.flashcards(
-                        topic,
-                        number,
-                    )
+        except Exception as exc:
+            st.error(str(exc))
 
-                    st.session_state.flashcards = cards
-                    st.session_state.flashcard_index = 0
+    cards = st.session_state.get(
+        "flashcards",
+        [],
+    )
 
-                except Exception as error:
-                    st.error(
-                        f"Flashcard generation failed: {error}"
-                    )
-
-    cards = st.session_state.flashcards
-
-    if cards:
-
-        index = st.session_state.flashcard_index
-        card = cards[index]
-
-        st.divider()
-
-        st.caption(
-            f"Card {index + 1} of {len(cards)}"
-        )
+    for index, card in enumerate(
+        cards,
+        start=1,
+    ):
+        st.subheader(f"Card {index}")
 
         st.markdown(
-            f"## {card.front}"
+            f"**Front:** {card.front}"
         )
 
         if st.button(
-            "Show Answer",
-            key=f"show_{index}",
+            f"Show Answer {index}",
+            key=f"flashcard_show_{index}",
         ):
-            st.info(card.back)
-
-            show_sources(
-                card.evidence
+            st.markdown(
+                f"**Back:** {card.back}"
             )
 
-            col1, col2 = st.columns(2)
-
-            with col1:
-
-                if st.button(
-                    "😕 Didn't remember",
-                    key=f"forgot_{index}",
-                ):
-                    app.agent.record_flashcard_review(
-                        topic=topic,
-                        front=card.front,
-                        remembered=False,
-                    )
-
-                    if index < len(cards) - 1:
-                        st.session_state.flashcard_index += 1
-                        st.rerun()
-
-            with col2:
-
-                if st.button(
-                    "✅ Remembered",
-                    key=f"remember_{index}",
-                ):
-                    app.agent.record_flashcard_review(
-                        topic=topic,
-                        front=card.front,
-                        remembered=True,
-                    )
-
-                    if index < len(cards) - 1:
-                        st.session_state.flashcard_index += 1
-                        st.rerun()
-
-        if index == len(cards) - 1:
-
-            st.success(
-                "🎉 You've reached the end of the flashcards."
-            )
+        display_sources(card)
 
 
-# ============================================================
+# ---------------------------------------------------------
 # COMPARE
-# ============================================================
+# ---------------------------------------------------------
 
 elif mode == "Compare":
+    st.header("Compare")
 
-    st.header("⚖️ Compare Topics")
+    topic_a = st.text_input(
+        "Topic A",
+        placeholder="RAG",
+    )
 
-    col1, col2 = st.columns(2)
-
-    with col1:
-        topic_a = st.text_input(
-            "Topic A",
-            placeholder="RAG",
-        )
-
-    with col2:
-        topic_b = st.text_input(
-            "Topic B",
-            placeholder="Fine-tuning",
-        )
+    topic_b = st.text_input(
+        "Topic B",
+        placeholder="Fine-tuning",
+    )
 
     if st.button(
         "Compare",
         type="primary",
     ):
-
-        if not topic_a.strip() or not topic_b.strip():
-
-            st.warning(
-                "Please enter both topics."
-            )
-
-        else:
-
-            with st.spinner(
-                "Comparing topics..."
-            ):
-
-                try:
-
-                    result = app.compare(
-                        topic_a,
-                        topic_b,
-                    )
-
-                    st.markdown(
-                        f"### {result.topic_a} vs {result.topic_b}"
-                    )
-
-                    st.write(
-                        result.comparison
-                    )
-
-                    show_sources(
-                        result.evidence
-                    )
-
-                except Exception as error:
-
-                    st.error(
-                        f"Comparison failed: {error}"
-                    )
-
-
-# ============================================================
-# PROGRESS
-# ============================================================
-
-elif mode == "Progress":
-
-    st.header("📊 Learning Progress")
-
-    try:
-
-        progress = app.progress()
-
-        if not progress:
-
-            st.info(
-                "No learning progress recorded yet."
-            )
-
-        else:
-
-            for item in progress:
-
-                st.subheader(
-                    item.topic
+        try:
+            with st.spinner("Comparing topics..."):
+                result = study_app.compare(
+                    topic_a,
+                    topic_b,
                 )
 
-                col1, col2, col3, col4 = st.columns(4)
+            st.markdown(result.comparison)
+            display_sources(result)
+
+        except Exception as exc:
+            st.error(str(exc))
+
+
+# ---------------------------------------------------------
+# PROGRESS
+# ---------------------------------------------------------
+
+elif mode == "Progress":
+    st.header("Learning Progress")
+
+    try:
+        progress = study_app.progress()
+
+        if not progress:
+            st.info(
+                "No learning progress has been recorded yet."
+            )
+
+        else:
+            for item in progress:
+                st.subheader(item.topic)
+
+                col1, col2 = st.columns(2)
 
                 with col1:
-
-                    st.metric(
-                        "Quiz Questions",
-                        item.questions_answered,
-                    )
-
-                with col2:
-
                     st.metric(
                         "Quiz Accuracy",
                         f"{item.quiz_accuracy:.0%}",
                     )
 
-                with col3:
-
+                with col2:
                     st.metric(
-                        "Cards Reviewed",
-                        item.flashcards_reviewed,
-                    )
-
-                with col4:
-
-                    st.metric(
-                        "Retention",
+                        "Flashcard Retention",
                         f"{item.flashcard_retention:.0%}",
                     )
 
-                st.divider()
-
-    except Exception as error:
-
-        st.error(
-            f"Could not load progress: {error}"
-        )
+    except Exception as exc:
+        st.error(str(exc))
