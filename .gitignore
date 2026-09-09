@@ -15,8 +15,9 @@ vectorstore/
 *.sqlite
 *.sqlite3
 
-# User-provided project brief; keep it local.
+# Local project documentation; keep out of version control.
 AI_Study_Agent_Project_Documentation_Professional.pdf
+AGENT_EXPLANATION_END_TO_END.txt
 
 .vscode/
 .idea/
