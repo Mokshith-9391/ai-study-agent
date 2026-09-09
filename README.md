@@ -1,6 +1,6 @@
 # AI Study Agent
 
-AI Study Agent is a local-first Retrieval-Augmented Generation (RAG) backend for personal study material. It indexes local PDF, TXT, and Markdown files, retrieves relevant passages, and returns Gemini-generated answers grounded in that evidence with source citations. FastAPI provides the localhost interface and automatic API documentation.
+AI Study Agent is a local-first Retrieval-Augmented Generation (RAG) study application. It indexes local PDF, TXT, and Markdown files, retrieves relevant passages, and returns Gemini-generated answers grounded in that evidence with source citations. Streamlit is the primary interface; FastAPI remains available as an optional local API.
 
 ## Architecture
 
@@ -50,13 +50,23 @@ python -m scripts.index_study
 
 Chunk IDs are deterministic and indexing uses Chroma upserts, so unchanged chunks are not duplicated.
 
-## Run the localhost API
+## Run the Streamlit study app
+
+```powershell
+streamlit run app/streamlit_app.py
+```
+
+Open [http://192.168.88.13:8501](http://192.168.88.13:8501) in Chrome. The app is configured to listen on your local network, so another device connected to the same Wi-Fi can use the same URL. If Windows Firewall asks, allow Python on private networks.
+
+Your Wi-Fi address can change after reconnecting. Run `ipconfig` and use the IPv4 Address beneath your Wi-Fi adapter if `192.168.88.13` no longer works.
+
+## Optional FastAPI interface
 
 ```powershell
 python -m uvicorn app.api:app --host 0.0.0.0 --port 8000
 ```
 
-Open [http://192.168.88.13:8000](http://192.168.88.13:8000) in Chrome on this laptop or another device on the same Wi-Fi network. The root URL redirects to Swagger UI; the OpenAPI schema is available at `/openapi.json`.
+Open [http://192.168.88.13:8000](http://192.168.88.13:8000) for Swagger UI; the OpenAPI schema is at `/openapi.json`.
 
 ## API endpoints
 
