@@ -1,4 +1,17 @@
+"""Streamlit entry point for the AI Study Agent."""
+
+from pathlib import Path
+import sys
+
 import streamlit as st
+
+
+# Streamlit executes this file with ``app/`` first on sys.path. Add the
+# repository root so ``src`` imports work whether the app is launched from
+# PowerShell, the Streamlit UI, or a packaged shortcut.
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.study_app import StudyApp
 
